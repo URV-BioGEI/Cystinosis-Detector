@@ -70,32 +70,46 @@ function main
                 max_boundingbox = boundingboxes(i);
             end
         end
-        I_cornea = imcrop(I_cornea, fix(max_boundingbox.BoundingBox)); figure, imshow(I_cornea);
-        
-        % Retallem els trossets de la cornea. 
-        % Files: 250 + 300 = 550. Proporcio 250 / 550 = 0.454545... 300 / 550 = 0.545454...
-        % Columnes: 4 + 4 + 4 = 12. Poporcio 4 / 12 = 1 / 3 = 0.333...
-        props = [300 / 550, 250 / 550]
+        I_cornea = imcrop(I_cornea, fix(max_boundingbox.BoundingBox));
 
+        % Retallem els trossets de la cornea. 
+        % Files: 250 + 300 = 550. Proporcio seccions files 250 / 550 = 0.454545... 300 / 550 = 0.545454...
+        % Columnes: 4 + 4 + 4 = 12. Poporcio seccions columnes 4 / 12 = 1 / 3 = 0.333...
+        props = [300 / 550, 250 / 550];
+        
         % Els arguments de crop i size NO són coherents!
         % crop(Imatge, [columna, fila, amplitud, altura])
         % size(Imatge, 1) --> numfiles; size(Imatge, 2) --> numcolumnes
-      
-        sections = cell(2, 3);
+        seccions = cell(2, 3);
         for i = 1 : 2
             for j = 1 : 3
-                sections{i}{j} = imcrop(I_cornea, [(j - 1) * (1 / 3) * size(I_cornea, 2), (i - 1) * props(i) * size(I_cornea, 1), (1 / 3) * size(I_cornea, 2), size(I_cornea, 1) * props(i)]);
-                figure, imshow(sections{i}{j});
+                seccions{i}{j} = struct('Imatge', imcrop(I_cornea, [(j - 1) * (1 / 3) * size(I_cornea, 2), (i - 1) * props(i) * size(I_cornea, 1), (1 / 3) * size(I_cornea, 2), size(I_cornea, 1) * props(i)]), 'Nombre_cristalls', 0, 'Gris_total_cristalls', 0, 'Gris_normalitzat_cristalls', 0.);
+                I_bin_section = imbinarize(seccions{i}{j}.Imatge, 0.6);  % Threshold per binaritzar i detectar cristalls (calculat a ull)
+                [num_pixels, tonalitats] = imhist(I_bin_section);  % Obtenim recompte de píxels blancs (cristalls) i negres (còrnea sana)
+                seccions{i}{j}.Nombre_cristalls = num_pixels(2);  % Guardem a la nostra estructura de resultats
+                I_cristalls_section = seccions{i}{j}.Imatge .* uint8(I_bin_section);  % Enmascarem obtenint només els grisos dels cristalls de la còrnea
+                [num_pixels_gris, tonalitats_gris] = imhist(I_cristalls_section);  % Obtenim recompte de píxels segons tonalitat de gris NOMÉS als cristalls
+                % Comptem el nivell de gris total dels cristalls
+                nivell_gris_cristalls = 0;
+                for k = 1 : size(tonalitats_gris)
+                    nivell_gris_cristalls = nivell_gris_cristalls + tonalitats_gris(k) * num_pixels_gris(k);
+                end
+                seccions{i}{j}.Gris_total_cristalls = nivell_gris_cristalls;  % Guardem a l'estructura de resultats
+                if seccions{i}{j}.Nombre_cristalls == 0
+                    seccions{i}{j}.Gris_normalitzat_cristalls = 0;
+                else
+                    seccions{i}{j}.Gris_normalitzat_cristalls = seccions{i}{j}.Gris_total_cristalls / seccions{i}{j}.Nombre_cristalls;  
+                end
+                % Normalitzem: Total nivell de gris dels pixels que formen cristalls / nombre de pixels que formen cristall
             end
         end
-
-
-
-        
+        return 
     end  %  end of func
 
-  I = imread( '../data/patients/PAC4/PAC4_20160707_110744_PENTACAM_R_17.BMP' );
-  get_results(I)
+    I = imread( '../data/patients/PAC4/PAC4_20160707_110744_PENTACAM_R_17.BMP' );
+    get_results(I)
+    
+    
   
 
 end  % end of main
