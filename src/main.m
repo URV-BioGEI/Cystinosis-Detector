@@ -60,7 +60,37 @@ function main
                 end
             end
         end
+        % Eliminem espai negre que queda per baix de la cornea
+        I_flat_cornea_bin = imbinarize(I_cornea, 0.07 );
+        boundingboxes = regionprops(I_flat_cornea_bin, 'BoundingBox');
+        max_boundingbox = boundingboxes(1);  % Assignació arbitraria de bounding box maxim
+        % Busquem el BoundingBox amb l'amplada més gran (el tercer camp de l'array de bounding boxes)
+        for i = 1 : length(boundingboxes)
+            if boundingboxes(i).BoundingBox(3) > max_boundingbox.BoundingBox(3)
+                max_boundingbox = boundingboxes(i);
+            end
+        end
+        I_cornea = imcrop(I_cornea, fix(max_boundingbox.BoundingBox)); figure, imshow(I_cornea);
         
+        % Retallem els trossets de la cornea. 
+        % Files: 250 + 300 = 550. Proporcio 250 / 550 = 0.454545... 300 / 550 = 0.545454...
+        % Columnes: 4 + 4 + 4 = 12. Poporcio 4 / 12 = 1 / 3 = 0.333...
+        props = [300 / 550, 250 / 550]
+
+        % Els arguments de crop i size NO són coherents!
+        % crop(Imatge, [columna, fila, amplitud, altura])
+        % size(Imatge, 1) --> numfiles; size(Imatge, 2) --> numcolumnes
+      
+        sections = cell(2, 3);
+        for i = 1 : 2
+            for j = 1 : 3
+                sections{i}{j} = imcrop(I_cornea, [(j - 1) * (1 / 3) * size(I_cornea, 2), (i - 1) * props(i) * size(I_cornea, 1), (1 / 3) * size(I_cornea, 2), size(I_cornea, 1) * props(i)]);
+                figure, imshow(sections{i}{j});
+            end
+        end
+
+
+
         
     end  %  end of func
 
