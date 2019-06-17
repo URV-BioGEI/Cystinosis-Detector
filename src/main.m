@@ -1,13 +1,13 @@
-function main(arg1)
+function main(arg1, arg2)
 
     function resultats = get_results(I)
         I_ull = imcrop(I, [100 128 712 415] ); % Tallem la imatge per a que surti només la part de l'ull HC per a les nostres imatges
-        I_gris = rgb2gray(I_ull);figure, imshow(I_gris);  % Passem a escala de grisos
-        I_processada = histeq(I_gris); figure, imshow(I_processada);  % Equalitzem
-        I_erosionada = imerode(I_processada, strel('disk', 5)); figure, imshow(I_erosionada);  % Erosionem la imatge per enmascarar la part de la cornea que no interessa
-        I_bin_erosionada = imbinarize(I_erosionada, "adaptive", "sensitivity", 0.0000001); figure, imshow(I_bin_erosionada);  % Binaritzem deixant passar només els píxels d'objectes. adaptive per evitar la llum i zones fosques.
-        I_masked = I_gris .* uint8(I_bin_erosionada); figure, imshow(I_masked);  % Apliquem una máscara per a conservar les tonalitats de gris als llocs on hi han e1s (objectes)
-        I_objects = imbinarize(I_masked, 0.1); figure, imshow(I_objects);  % Binaritzem la imatge de grisos dels objectes
+        I_gris = rgb2gray(I_ull);  % Passem a escala de grisos
+        I_processada = histeq(I_gris);  % Equalitzem
+        I_erosionada = imerode(I_processada, strel('disk', 5));  % Erosionem la imatge per enmascarar la part de la cornea que no interessa
+        I_bin_erosionada = imbinarize(I_erosionada, "adaptive", "sensitivity", 0.0000001);  % Binaritzem deixant passar només els píxels d'objectes. adaptive per evitar la llum i zones fosques.
+        I_masked = I_gris .* uint8(I_bin_erosionada);  % Apliquem una máscara per a conservar les tonalitats de gris als llocs on hi han e1s (objectes)
+        I_objects = imbinarize(I_masked, 0.1);  % Binaritzem la imatge de grisos dels objectes
         boundingboxes = regionprops(I_objects, "BoundingBox");  % Trobem els bounding boxes dels objectes de la imatge
         max_boundingbox = boundingboxes(1);  % Assignació arbitraria de bounding box maxim
         % Busquem el BoundingBox amb l'amplada més gran (el tercer camp de l'array de bounding boxes)
@@ -68,7 +68,7 @@ function main(arg1)
                 % Emmaguetzem cada tros en una estructura tipus resultats(Imatge,
                 % int, int, float), que está emmagatzemat en resultat seccions[2][3]
                 seccions{i}{j} = struct('Imatge', imcrop(I_cornea, [(j - 1) * (1 / 3) * size(I_cornea, 2), (i - 1) * props(i) * size(I_cornea, 1), (1 / 3) * size(I_cornea, 2), size(I_cornea, 1) * props(i)]), 'Nombre_cristalls', 0, 'Gris_total_cristalls', 0, 'Gris_normalitzat_cristalls', 0.);
-                I_bin_section = imbinarize(seccions{i}{j}.Imatge, 0.6);  % Threshold per binaritzar i detectar cristalls HC
+                I_bin_section = imbinarize(seccions{i}{j}.Imatge, 0.7);  % Threshold per binaritzar i detectar cristalls HC
                 [num_pixels, ~] = imhist(I_bin_section);  % Obtenim recompte de píxels blancs (cristalls) i negres (còrnea sana)
                 seccions{i}{j}.Nombre_cristalls = num_pixels(2);  % Guardem a la nostra estructura de resultats
                 I_cristalls_section = seccions{i}{j}.Imatge .* uint8(I_bin_section);  % Enmascarem obtenint només els grisos dels cristalls de la còrnea
@@ -109,11 +109,12 @@ function main(arg1)
         figure;
         for x = 1 : 2
             for y = 1 : 3
-                subplot(4, 3, 3 + (y + x * 3)), imshow(resultats{1}{x}{y}.Imatge), title(sprintf("Num cristalls (píxels): %i\nNivell total de gris: %i\nGris normalitzat %.3f", resultats{1}{x}{y}.Nombre_cristalls, resultats{1}{x}{y}.Gris_total_cristalls, resultats{1}{x}{y}.Gris_normalitzat_cristalls));
+                subplot(5, 3, 6 + (y + x * 3)), imshow(resultats{1}{x}{y}.Imatge), title(sprintf("Num cristalls (píxels): %i\nNivell de gris: %i\nGris normalitzat %.3f", resultats{1}{x}{y}.Nombre_cristalls, resultats{1}{x}{y}.Gris_total_cristalls, resultats{1}{x}{y}.Gris_normalitzat_cristalls));
             end
         end
-        subplot(4, 3, [1 2 3]), imshow(resultats{2}.Cornea_original), title("Còrnea original");
-        subplot(4, 3, [4 5 6]), imshow(resultats{2}.Cornea_plana), title(sprintf("Num cristalls totals (píxels): %i\nNivell total de gris: %i\nGris normalitzat %.3f", resultats{2}.Nombre_cristalls, resultats{2}.Gris_total_cristalls, resultats{2}.Gris_normalitzat_cristalls));
+        subplot(5, 3, [1 2 3]); imshow(resultats{2}.Cornea_original); title(path);
+        subplot(5, 3, [4 5 6]); imshow(resultats{2}.Cornea_plana); title(sprintf("Num cristalls totals (píxels): %i\nNivell de gris: %i\nGris normalitzat %.3f", resultats{2}.Nombre_cristalls, resultats{2}.Gris_total_cristalls, resultats{2}.Gris_normalitzat_cristalls));
+        subplot(5, 3, [7 8 9]); imhist(resultats{2}.Cornea_plana); title("Histograma");
     end
 
     function resultats = comparar_corneas(path1, path2)
@@ -126,26 +127,37 @@ function main(arg1)
                 diferencia_seccions{i}{j} = struct('Nombre_cristalls', resultats{2}{1}{i}{j}.Nombre_cristalls - resultats{1}{1}{i}{j}.Nombre_cristalls, 'Gris_total_cristalls', resultats{2}{1}{i}{j}.Gris_total_cristalls - resultats{1}{1}{i}{j}.Gris_total_cristalls, 'Gris_normalitzat_cristalls', resultats{2}{1}{i}{j}.Gris_normalitzat_cristalls - resultats{1}{1}{i}{j}.Gris_normalitzat_cristalls);
             end
         end
-        resultats{3} = diferencia_seccions;
+        resultats{3} = cell(2);
+        resultats{3}{1} = diferencia_seccions;
+        resultats{3}{2} = struct('Nombre_cristalls', resultats{2}{2}.Nombre_cristalls - resultats{1}{2}.Nombre_cristalls, 'Gris_total_cristalls', resultats{2}{2}.Gris_total_cristalls - resultats{1}{2}.Gris_total_cristalls, 'Gris_normalitzat_cristalls', resultats{2}{2}.Gris_normalitzat_cristalls - resultats{1}{2}.Gris_normalitzat_cristalls);
     end
 
 
     function resultats = comparar_corneas_decorator(path1, path2)
         resultats = comparar_corneas(path1, path2);
+        figure;
         for i = 1 : 2
             for j = 1 : 3
-                subplot(2, 3, (j + (i - 1) * 3), title(sprintf("Diferencia num cristalls (píxels): %i\nDiferencia nivell total de gris: %i\nDiferencia gris normalitzat %.3f", resultats{3}{i}{j}.Nombre_cristalls, resultats{3}{i}{j}.Gris_total_cristalls, resultats{3}{i}{j}.Gris_normalitzat_cristalls))); 
+                subplot(8, 3, 12 + (j + (i - 1) * 6)), imshow(resultats{1}{1}{i}{j}.Imatge), title(sprintf("Dif Num cristalls: %i\nDif nivell de gris: %i\nDif gris normalitzat %.3f", resultats{3}{1}{i}{j}.Nombre_cristalls, resultats{3}{1}{i}{j}.Gris_total_cristalls, resultats{3}{1}{i}{j}.Gris_normalitzat_cristalls)); 
+                subplot(8, 3, 12 + (j + (i - 1) * 6) + 3), imshow(resultats{2}{1}{i}{j}.Imatge);
             end
         end
-        
-        resultats = 0;
+        subplot(8, 3, [1 2 3]), imshow(resultats{1}{2}.Cornea_original), title(path1);
+        subplot(8, 3, [4 5 6]), imshow(resultats{2}{2}.Cornea_original), title(path2);
+        subplot(8, 3, [7 8 9]), imshow(resultats{1}{2}.Cornea_plana);
+        subplot(8, 3, [10 11 12]), imshow(resultats{2}{2}.Cornea_plana), title(sprintf("Dif Num cristalls total: %i\nDif total de gris: %i\nDif total gris normalitzat %.3f", resultats{3}{2}.Nombre_cristalls, resultats{3}{2}.Gris_total_cristalls, resultats{3}{2}.Gris_normalitzat_cristalls)); 
+
     end
+
 
     if exist(arg1, 'file')
-        get_results_decorator('..\data\patients\PAC9\PAC9_20160805_104501_PENTACAM_R_09.BMP');
+        if exist(arg2, 'file')
+            comparar_corneas_decorator(arg1, arg2);
+        else
+            get_results_decorator(arg1);
+        end
     else
-        "No s'ha trobat el fitxer"
+        "No s'ha trobat el primer fitxer"
     end
   
-
 end  % end of main
